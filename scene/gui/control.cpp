@@ -1976,49 +1976,63 @@ void Control::set_focus_mode(FocusMode p_focus_mode) {
 	data.focus_mode = p_focus_mode;
 }
 
+Control *Control::find_auto_valid_focus() const {
+	Control *from = const_cast<Control *>(this);
+
+	// If the focus property is manually overwritten, use it
+	if (!data.focus_auto.is_empty()) {
+		Node *n = get_node(data.focus_auto);
+		Control *c;
+		if (n) {
+			c = Object::cast_to<Control>(n);
+			ERR_FAIL_COND_V_MSG(!c, NULL, "Accept focus node is not a control: " + n->get_name() + ".");
+		} else {
+			return NULL;
+		}
+		if (c->get_focus_mode() != FOCUS_NONE)
+			return c;
+	}
+	return NULL;
+}
+
 Control *Control::find_accept_valid_focus() const {
 
 	Control *from = const_cast<Control *>(this);
 
-	while (true) {
-
-		// If the focus property is manually overwritten, attempt to use it.
-
-		if (!data.focus_accept.is_empty()) {
-			Node *n = get_node(data.focus_accept);
-			Control *c;
-			if (n) {
-				c = Object::cast_to<Control>(n);
-				ERR_FAIL_COND_V_MSG(!c, NULL, "Accept focus node is not a control: " + n->get_name() + ".");
-			} else {
-				return NULL;
-			}
-			if (c->is_visible() && c->get_focus_mode() != FOCUS_NONE)
-				return c;
+	// If the focus property is manually overwritten, use it
+	if (!data.focus_accept.is_empty()) {
+		Node *n = get_node(data.focus_accept);
+		Control *c;
+		if (n) {
+			c = Object::cast_to<Control>(n);
+			ERR_FAIL_COND_V_MSG(!c, NULL, "Accept focus node is not a control: " + n->get_name() + ".");
+		} else {
+			return NULL;
 		}
+		if (c->get_focus_mode() != FOCUS_NONE)
+			return c;
 	}
+	return NULL;
+	
 }
 
 Control *Control::find_cancel_valid_focus() const {
 	Control *from = const_cast<Control *>(this);
 
-	while (true) {
-
-		// If the focus property is manually overwritten, attempt to use it.
-
-		if (!data.focus_cancel.is_empty()) {
-			Node *n = get_node(data.focus_cancel);
-			Control *c;
-			if (n) {
-				c = Object::cast_to<Control>(n);
-				ERR_FAIL_COND_V_MSG(!c, NULL, "Cancel focus node is not a control: " + n->get_name() + ".");
-			} else {
-				return NULL;
-			}
-			if (c->is_visible() && c->get_focus_mode() != FOCUS_NONE)
-				return c;
+	// If the focus property is manually overwritten, use it
+	if (!data.focus_cancel.is_empty()) {
+		Node *n = get_node(data.focus_cancel);
+		Control *c;
+		if (n) {
+			c = Object::cast_to<Control>(n);
+			ERR_FAIL_COND_V_MSG(!c, NULL, "Cancel focus node is not a control: " + n->get_name() + ".");
+		} else {
+			return NULL;
 		}
+		if (c->get_focus_mode() != FOCUS_NONE)
+			return c;
 	}
+	return NULL;
 }
 
 static Control *_next_control(Control *p_from) {
@@ -2205,6 +2219,14 @@ Control *Control::find_prev_valid_focus() const {
 	return NULL;
 }
 
+void Control::set_focus_auto(const NodePath &p_auto) {
+	data.focus_auto = p_auto;
+}
+
+NodePath Control::get_focus_auto() const {
+	return data.focus_auto;
+}
+
 Control::FocusMode Control::get_focus_mode() const {
 
 	return data.focus_mode;
@@ -2224,10 +2246,6 @@ void Control::grab_focus() {
 	}
 
 	get_viewport()->_gui_control_grab_focus(this);
-
-	if (data.show_on_focus_enter && has_focus_nested()) {
-		set_visible(true);
-	}
 }
 
 void Control::release_focus() {
@@ -2238,11 +2256,6 @@ void Control::release_focus() {
 		return;
 
 	get_viewport()->_gui_remove_focus();
-
-	if (data.show_on_focus_enter && !has_focus_nested()) {
-		set_visible(false);
-	}
-
 	update();
 }
 
@@ -2256,7 +2269,7 @@ bool Control::has_focus_nested() {
 		if (n) {
 			c = Object::cast_to<Control>(n);
 			if (c) {
-				if (c->has_focus_nested() == true) {
+				if (c->has_focus_nested()) {
 					return true;
 				}
 			}
@@ -3030,6 +3043,9 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_hide_on_focus_leave", "hide_on_focus_leave"), &Control::set_hide_on_focus_leave);
 	ClassDB::bind_method(D_METHOD("get_hide_on_focus_leave"), &Control::get_hide_on_focus_leave);
 
+	ClassDB::bind_method(D_METHOD("set_focus_auto", "auto"), &Control::set_focus_auto);
+	ClassDB::bind_method(D_METHOD("get_focus_auto"), &Control::get_focus_auto);
+
 	ClassDB::bind_method(D_METHOD("set_focus_neighbour", "margin", "neighbour"), &Control::set_focus_neighbour);
 	ClassDB::bind_method(D_METHOD("get_focus_neighbour", "margin"), &Control::get_focus_neighbour);
 
@@ -3110,6 +3126,7 @@ void Control::_bind_methods() {
 	ADD_GROUP("Focus", "focus_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "focus_show_on_focus_enter"), "set_show_on_focus_enter", "get_show_on_focus_enter");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "focus_hide_on_focus_leave"), "set_hide_on_focus_leave", "get_hide_on_focus_leave");
+	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_auto", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_auto", "get_focus_auto");
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_LEFT);
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_top", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_TOP);
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_right", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_RIGHT);

@@ -2445,11 +2445,13 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			if (p_event->is_action_pressed("ui_accept") && input->is_action_just_pressed("ui_accept")) {
 
 				next = from->find_accept_valid_focus();
+				if(!next) printf("ui_accept didn't work");
 			}
 
 			if (p_event->is_action_pressed("ui_cancel") && input->is_action_just_pressed("ui_cancel")) {
 
 				next = from->find_cancel_valid_focus();
+				if (!next) printf("ui_cancel didn't work");
 			}
 
 			if (p_event->is_action_pressed("ui_focus_next") && input->is_action_just_pressed("ui_focus_next")) {
@@ -2656,6 +2658,11 @@ void Viewport::_gui_remove_control(Control *p_control) {
 void Viewport::_gui_remove_focus() {
 
 	if (gui.key_focus) {
+
+		if (gui.key_focus->get_hide_on_focus_leave() && !gui.key_focus->has_focus_nested()) {
+			gui.key_focus->set_visible(false);
+		}
+
 		Node *f = gui.key_focus;
 		gui.key_focus = NULL;
 		f->notification(Control::NOTIFICATION_FOCUS_EXIT, true);
@@ -2674,14 +2681,29 @@ bool Viewport::_gui_control_has_focus(const Control *p_control) {
 
 void Viewport::_gui_control_grab_focus(Control *p_control) {
 
+	//try to redirect focus on auto nodepath
+	Control *c = p_control->find_auto_valid_focus();
+
+	if (!c) {
+
+		//if not we just continue using focusing this control
+		c = p_control;
+	}
+
+	//if we have the show on focus flag and any of us or our children are focused set visible
+	if (c->get_show_on_focus_enter() && c->has_focus_nested()) {
+		c->set_visible(true);
+	}
+
+	//do existing code but with c instead of p_control
 	//no need for change
-	if (gui.key_focus && gui.key_focus == p_control)
+	if (gui.key_focus && gui.key_focus == c)
 		return;
 	get_tree()->call_group_flags(SceneTree::GROUP_CALL_REALTIME, "_viewports", "_gui_remove_focus");
-	gui.key_focus = p_control;
-	emit_signal("gui_focus_changed", p_control);
-	p_control->notification(Control::NOTIFICATION_FOCUS_ENTER);
-	p_control->update();
+	gui.key_focus = c;
+	emit_signal("gui_focus_changed", c);
+	c->notification(Control::NOTIFICATION_FOCUS_ENTER);
+	c->update();
 }
 
 void Viewport::_gui_accept_event() {

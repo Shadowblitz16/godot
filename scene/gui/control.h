@@ -197,6 +197,7 @@ private:
 		bool show_on_focus_enter;
 		bool hide_on_focus_leave;
 
+		NodePath focus_auto;
 		NodePath focus_neighbour[4];
 		NodePath focus_accept;
 		NodePath focus_cancel;
@@ -411,11 +412,14 @@ public:
 	void set_hide_on_focus_leave(const bool p_enter);
 	bool get_hide_on_focus_leave() const;
 
+	Control *find_auto_valid_focus() const;
 	Control *find_accept_valid_focus() const;
 	Control *find_cancel_valid_focus() const;
 	Control *find_next_valid_focus() const;
 	Control *find_prev_valid_focus() const;
 
+	void set_focus_auto(const NodePath &p_auto);
+	NodePath get_focus_auto() const;
 	void set_focus_neighbour(Margin p_margin, const NodePath &p_neighbour);
 	NodePath get_focus_neighbour(Margin p_margin) const;
 	void set_focus_accept(const NodePath &p_accept);
