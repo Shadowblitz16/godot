@@ -1976,6 +1976,51 @@ void Control::set_focus_mode(FocusMode p_focus_mode) {
 	data.focus_mode = p_focus_mode;
 }
 
+Control *Control::find_accept_valid_focus() const {
+
+	Control *from = const_cast<Control *>(this);
+
+	while (true) {
+
+		// If the focus property is manually overwritten, attempt to use it.
+
+		if (!data.focus_accept.is_empty()) {
+			Node *n = get_node(data.focus_accept);
+			Control *c;
+			if (n) {
+				c = Object::cast_to<Control>(n);
+				ERR_FAIL_COND_V_MSG(!c, NULL, "Accept focus node is not a control: " + n->get_name() + ".");
+			} else {
+				return NULL;
+			}
+			if (c->is_visible() && c->get_focus_mode() != FOCUS_NONE)
+				return c;
+		}
+	}
+}
+
+Control *Control::find_cancel_valid_focus() const {
+	Control *from = const_cast<Control *>(this);
+
+	while (true) {
+
+		// If the focus property is manually overwritten, attempt to use it.
+
+		if (!data.focus_cancel.is_empty()) {
+			Node *n = get_node(data.focus_cancel);
+			Control *c;
+			if (n) {
+				c = Object::cast_to<Control>(n);
+				ERR_FAIL_COND_V_MSG(!c, NULL, "Cancel focus node is not a control: " + n->get_name() + ".");
+			} else {
+				return NULL;
+			}
+			if (c->is_visible() && c->get_focus_mode() != FOCUS_NONE)
+				return c;
+		}
+	}
+}
+
 static Control *_next_control(Control *p_from) {
 
 	if (p_from->is_set_as_toplevel())
@@ -2179,6 +2224,10 @@ void Control::grab_focus() {
 	}
 
 	get_viewport()->_gui_control_grab_focus(this);
+
+	if (data.show_on_focus_enter && has_focus_nested()) {
+		set_visible(true);
+	}
 }
 
 void Control::release_focus() {
@@ -2189,7 +2238,45 @@ void Control::release_focus() {
 		return;
 
 	get_viewport()->_gui_remove_focus();
+
+	if (data.show_on_focus_enter && !has_focus_nested()) {
+		set_visible(false);
+	}
+
 	update();
+}
+
+bool Control::has_focus_nested() {
+
+	if (get_focus_mode() == FOCUS_NONE) return false;
+
+	for (int i = 0; i < get_child_count(); i++) {
+		Node *n = get_child(i);
+		Control *c;
+		if (n) {
+			c = Object::cast_to<Control>(n);
+			if (c) {
+				if (c->has_focus_nested() == true) {
+					return true;
+				}
+			}
+		}
+	}
+	return has_focus();
+}
+
+void Control::set_show_on_focus_enter(const bool p_enter) {
+	data.show_on_focus_enter = p_enter;
+}
+bool Control::get_show_on_focus_enter() const {
+	return data.show_on_focus_enter;
+}
+
+void Control::set_hide_on_focus_leave(const bool p_leave) {
+	data.hide_on_focus_leave = p_leave;
+}
+bool Control::get_hide_on_focus_leave() const {
+	return data.hide_on_focus_leave;
 }
 
 bool Control::is_toplevel_control() const {
@@ -2357,6 +2444,22 @@ NodePath Control::get_focus_neighbour(Margin p_margin) const {
 
 	ERR_FAIL_INDEX_V((int)p_margin, 4, NodePath());
 	return data.focus_neighbour[p_margin];
+}
+
+void Control::set_focus_accept(const NodePath &p_accept) {
+	data.focus_accept = p_accept;
+}
+
+NodePath Control::get_focus_accept() const {
+	return data.focus_accept;
+}
+
+void Control::set_focus_cancel(const NodePath &p_cancel) {
+	data.focus_cancel = p_cancel;
+}
+
+NodePath Control::get_focus_cancel() const {
+	return data.focus_cancel;
 }
 
 void Control::set_focus_next(const NodePath &p_next) {
@@ -2921,8 +3024,20 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_default_cursor_shape"), &Control::get_default_cursor_shape);
 	ClassDB::bind_method(D_METHOD("get_cursor_shape", "position"), &Control::get_cursor_shape, DEFVAL(Point2()));
 
+	ClassDB::bind_method(D_METHOD("set_show_on_focus_enter", "show_on_focus_enter"), &Control::set_show_on_focus_enter);
+	ClassDB::bind_method(D_METHOD("get_show_on_focus_enter"), &Control::get_show_on_focus_enter);
+
+	ClassDB::bind_method(D_METHOD("set_hide_on_focus_leave", "hide_on_focus_leave"), &Control::set_hide_on_focus_leave);
+	ClassDB::bind_method(D_METHOD("get_hide_on_focus_leave"), &Control::get_hide_on_focus_leave);
+
 	ClassDB::bind_method(D_METHOD("set_focus_neighbour", "margin", "neighbour"), &Control::set_focus_neighbour);
 	ClassDB::bind_method(D_METHOD("get_focus_neighbour", "margin"), &Control::get_focus_neighbour);
+
+	ClassDB::bind_method(D_METHOD("set_focus_accept", "accept"), &Control::set_focus_accept);
+	ClassDB::bind_method(D_METHOD("get_focus_accept"), &Control::get_focus_accept);
+
+	ClassDB::bind_method(D_METHOD("set_focus_cancel", "cancel"), &Control::set_focus_cancel);
+	ClassDB::bind_method(D_METHOD("get_focus_cancel"), &Control::get_focus_cancel);
 
 	ClassDB::bind_method(D_METHOD("set_focus_next", "next"), &Control::set_focus_next);
 	ClassDB::bind_method(D_METHOD("get_focus_next"), &Control::get_focus_next);
@@ -2993,10 +3108,14 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "hint_tooltip", PROPERTY_HINT_MULTILINE_TEXT), "set_tooltip", "_get_tooltip");
 
 	ADD_GROUP("Focus", "focus_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "focus_show_on_focus_enter"), "set_show_on_focus_enter", "get_show_on_focus_enter");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "focus_hide_on_focus_leave"), "set_hide_on_focus_leave", "get_hide_on_focus_leave");
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_LEFT);
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_top", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_TOP);
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_right", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_RIGHT);
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_bottom", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_BOTTOM);
+	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_accept", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_accept", "get_focus_accept");
+	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_cancel", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_cancel", "get_focus_cancel");
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_next", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_next", "get_focus_next");
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_previous", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_previous", "get_focus_previous");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "focus_mode", PROPERTY_HINT_ENUM, "None,Click,All"), "set_focus_mode", "get_focus_mode");
@@ -3123,6 +3242,8 @@ Control::Control() {
 	data.v_grow = GROW_DIRECTION_END;
 	data.minimum_size_valid = false;
 	data.updating_last_minimum_size = false;
+	data.show_on_focus_enter = false;
+	data.hide_on_focus_leave = false;
 
 	data.clip_contents = false;
 	for (int i = 0; i < 4; i++) {

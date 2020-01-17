@@ -194,7 +194,12 @@ private:
 
 		ObjectID modal_prev_focus_owner;
 
+		bool show_on_focus_enter;
+		bool hide_on_focus_leave;
+
 		NodePath focus_neighbour[4];
+		NodePath focus_accept;
+		NodePath focus_cancel;
 		NodePath focus_next;
 		NodePath focus_prev;
 
@@ -399,12 +404,24 @@ public:
 	void grab_focus();
 	void release_focus();
 
+	bool has_focus_nested();
+
+	void set_show_on_focus_enter(const bool p_enter);
+	bool get_show_on_focus_enter() const;
+	void set_hide_on_focus_leave(const bool p_enter);
+	bool get_hide_on_focus_leave() const;
+
+	Control *find_accept_valid_focus() const;
+	Control *find_cancel_valid_focus() const;
 	Control *find_next_valid_focus() const;
 	Control *find_prev_valid_focus() const;
 
 	void set_focus_neighbour(Margin p_margin, const NodePath &p_neighbour);
 	NodePath get_focus_neighbour(Margin p_margin) const;
-
+	void set_focus_accept(const NodePath &p_accept);
+	NodePath get_focus_accept() const;
+	void set_focus_cancel(const NodePath &p_cancel);
+	NodePath get_focus_cancel() const;
 	void set_focus_next(const NodePath &p_next);
 	NodePath get_focus_next() const;
 	void set_focus_previous(const NodePath &p_prev);
