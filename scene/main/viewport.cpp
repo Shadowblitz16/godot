@@ -2445,7 +2445,7 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			if (p_event->is_action_pressed("ui_accept") && input->is_action_just_pressed("ui_accept")) {
 
 				next = from->find_accept_valid_focus();
-				if(!next) printf("ui_accept didn't work");
+				if (!next) printf("ui_accept didn't work");
 			}
 
 			if (p_event->is_action_pressed("ui_cancel") && input->is_action_just_pressed("ui_cancel")) {
@@ -2657,14 +2657,18 @@ void Viewport::_gui_remove_control(Control *p_control) {
 
 void Viewport::_gui_remove_focus() {
 
-	if (gui.key_focus) {
+	Control *c_curr = gui.key_focus;
 
-		if (gui.key_focus->get_hide_on_focus_leave() && !gui.key_focus->has_focus_nested()) {
-			gui.key_focus->set_visible(false);
+	if (c_curr) {
+
+		printf("0x%p", (void *)c_curr);
+		//pass null here
+		if (c_curr->can_hide_on_focus_leave(NULL)) {
+			c_curr->set_visible(false);
 		}
 
-		Node *f = gui.key_focus;
-		gui.key_focus = NULL;
+		Node *f = c_curr;
+		c_curr = NULL;
 		f->notification(Control::NOTIFICATION_FOCUS_EXIT, true);
 	}
 }
@@ -2682,28 +2686,31 @@ bool Viewport::_gui_control_has_focus(const Control *p_control) {
 void Viewport::_gui_control_grab_focus(Control *p_control) {
 
 	//try to redirect focus on auto nodepath
-	Control *c = p_control->find_auto_valid_focus();
+	Control *c_curr = gui.key_focus;
+	Control *c_next = p_control->find_auto_valid_focus();
 
-	if (!c) {
-
-		//if not we just continue using focusing this control
-		c = p_control;
-	}
-
-	//if we have the show on focus flag and any of us or our children are focused set visible
-	if (c->get_show_on_focus_enter() && c->has_focus_nested()) {
-		c->set_visible(true);
-	}
-
-	//do existing code but with c instead of p_control
 	//no need for change
-	if (gui.key_focus && gui.key_focus == c)
+	if (c_curr && c_curr == c_next)
 		return;
+
+	//if not we just continue using focusing this control
+	if (!c_next) {
+		c_next = p_control;
+	}
+
+	if (c_curr != NULL && c_curr->can_hide_on_focus_leave(c_next)) {
+		c_curr->set_visible(false);
+	}
+
+	if (c_next != NULL && c_next->can_show_on_focus_enter(c_curr)) {
+		c_next->set_visible(true);
+	}
+	
 	get_tree()->call_group_flags(SceneTree::GROUP_CALL_REALTIME, "_viewports", "_gui_remove_focus");
-	gui.key_focus = c;
-	emit_signal("gui_focus_changed", c);
-	c->notification(Control::NOTIFICATION_FOCUS_ENTER);
-	c->update();
+	gui.key_focus = c_next;
+	emit_signal("gui_focus_changed", c_next);
+	c_next->notification(Control::NOTIFICATION_FOCUS_ENTER);
+	c_next->update();
 }
 
 void Viewport::_gui_accept_event() {

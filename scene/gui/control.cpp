@@ -2013,7 +2013,6 @@ Control *Control::find_accept_valid_focus() const {
 			return c;
 	}
 	return NULL;
-	
 }
 
 Control *Control::find_cancel_valid_focus() const {
@@ -2259,23 +2258,12 @@ void Control::release_focus() {
 	update();
 }
 
-bool Control::has_focus_nested() {
+bool Control::can_show_on_focus_enter(Control *c_prev) {
+	return this->get_show_on_focus_enter() && !this->is_visible() && (c_prev && c_prev->has_node(this->get_path()) || !c_prev);
+}
 
-	if (get_focus_mode() == FOCUS_NONE) return false;
-
-	for (int i = 0; i < get_child_count(); i++) {
-		Node *n = get_child(i);
-		Control *c;
-		if (n) {
-			c = Object::cast_to<Control>(n);
-			if (c) {
-				if (c->has_focus_nested()) {
-					return true;
-				}
-			}
-		}
-	}
-	return has_focus();
+bool Control::can_hide_on_focus_leave(Control *c_next) {
+	return this->get_hide_on_focus_leave() &&  this->is_visible() && (c_next && this->has_node(c_next->get_path()) || !c_next);
 }
 
 void Control::set_show_on_focus_enter(const bool p_enter) {

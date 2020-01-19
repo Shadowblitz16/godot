@@ -243,6 +243,7 @@ private:
 
 	void _update_canvas_item_transform();
 
+
 	Transform2D _get_internal_transform() const;
 
 	friend class Viewport;
@@ -405,8 +406,8 @@ public:
 	void grab_focus();
 	void release_focus();
 
-	bool has_focus_nested();
-
+	bool can_show_on_focus_enter(Control *c_prev);
+	bool can_hide_on_focus_leave(Control *c_next);
 	void set_show_on_focus_enter(const bool p_enter);
 	bool get_show_on_focus_enter() const;
 	void set_hide_on_focus_leave(const bool p_enter);
